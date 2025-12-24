@@ -64,9 +64,11 @@ module Animator exposing
 
 -}
 
-import Math exposing (interp, modByFloat, sign)
+import Math exposing (modByFloat)
 
 
+{-| The core animation type
+-}
 type Animation a
     = Animation { end : Float, fn : Float -> a }
 
