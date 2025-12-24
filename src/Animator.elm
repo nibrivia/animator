@@ -1,48 +1,110 @@
-module Animator exposing (..)
+module Animator exposing
+    ( withNoBounds, withUnitBounds, withDuration
+    , render
+    , duration, getEndState
+    , startWith, endWith, oobValue, clampAnim
+    , reverse, loopForever
+    , delay, cutAt, freezeAfter
+    , speedup, fitIn
+    , mapRes
+    , andAfter, alongWith
+    , together, sequence
+    )
+
+{-|
 
 
-modBy : Float -> Float -> Float
-modBy modulo x =
-    let
-        n =
-            floor (x / modulo)
-    in
-    x - (toFloat n * modulo)
+## Create an animation
+
+@docs withNoBounds, withUnitBounds, withDuration
 
 
-sign : Float -> Float
-sign x =
-    if x == 0 then
-        0
+## Run the animation
 
-    else if x > 0 then
-        1
-
-    else
-        -1
+@docs render
 
 
-interp : Float -> Float -> Float -> Float
-interp from to t =
-    from * (1 - t) + to * t
+## Get information about an animation
+
+@docs duration, getEndState
 
 
-clamp : Float -> Float -> Float -> Float
-clamp small big x =
-    x
-        |> min big
-        |> max small
+## Modify an animation
+
+
+### Initial and final states
+
+@docs startWith, endWith, oobValue, clampAnim
+
+
+### Modifications of individual animations
+
+@docs reverse, loopForever
+
+@docs delay, cutAt, freezeAfter
+
+@docs speedup, fitIn
+
+@docs mapRes
+
+
+## Compose animations
+
+
+### Just two animations
+
+@docs andAfter, alongWith
+
+
+### Many animations
+
+@docs together, sequence
+
+-}
+
+import Math exposing (interp, modByFloat, sign)
 
 
 type Animation a
     = Animation { end : Float, fn : Float -> a }
 
 
+{-| Most general constructor for an `Animation`.
+-}
+withDuration : Float -> (Float -> a) -> Animation a
+withDuration dur fn =
+    Animation { end = dur, fn = fn }
+
+
+{-| Probably what wants to be used by default, expects an animation from 0 to 1.
+-}
+withUnitBounds : (Float -> a) -> Animation a
+withUnitBounds =
+    withDuration 1
+
+
+{-| Create a constant animation of 0-duration
+-}
 withNoBounds : a -> Animation a
 withNoBounds val =
     withDuration 0 (\_ -> val)
 
 
+
+-- constant : a -> Float -> Animation a
+-- constant val dur =
+--     withDuration dur (\_ -> val)
+
+
+{-| Actually "runs" the animation at the given time.
+-}
+render : Float -> Animation a -> a
+render t (Animation { end, fn }) =
+    fn t
+
+
+{-| Force the animation's initial value to the given argument
+-}
 startWith : a -> Animation a -> Animation a
 startWith initial (Animation animData) =
     Animation
@@ -57,6 +119,8 @@ startWith initial (Animation animData) =
         }
 
 
+{-| Force the animation's final value to the given argument
+-}
 endWith : a -> Animation a -> Animation a
 endWith final (Animation animData) =
     Animation
@@ -71,6 +135,8 @@ endWith final (Animation animData) =
         }
 
 
+{-| Force the animation's initial and final values to the given argument
+-}
 oobValue : a -> Animation a -> Animation a
 oobValue val (Animation animData) =
     Animation
@@ -85,46 +151,39 @@ oobValue val (Animation animData) =
         }
 
 
+{-| Force the animation's initial and final values to what they would be at the start and end.
+
+By default, animations can "leak" out of their bounds. This makes it so that when the animation is rendered "beyond" its bounds, it "holds" the value it ends with.
+
+-}
 clampAnim : Animation a -> Animation a
 clampAnim (Animation ({ end, fn } as animData)) =
     Animation { animData | fn = \t -> fn (clamp 0 end t) }
 
 
-pause : a -> Float -> Animation a
-pause val dur =
-    withDuration dur (\_ -> val)
-
-
-withDuration : Float -> (Float -> a) -> Animation a
-withDuration dur fn =
-    Animation { end = dur, fn = fn }
-
-
-withUnitBounds : (Float -> a) -> Animation a
-withUnitBounds =
-    withDuration 1
-
-
-render : Float -> Animation a -> a
-render t (Animation { end, fn }) =
-    fn t
-
-
+{-| Get the duration of an existing animation
+-}
 duration : Animation a -> Float
 duration (Animation { end }) =
     end
 
 
+{-| Get the final state of an existing animation
+-}
 getEndState : Animation a -> a
 getEndState anim =
     anim |> render (duration anim)
 
 
+{-| Modifies the output of the animation
+-}
 mapRes : (a -> b) -> Animation a -> Animation b
 mapRes mapFn (Animation { end, fn }) =
     Animation { end = end, fn = fn >> mapFn }
 
 
+{-| Delays the start of an animation by the given time
+-}
 delay : Float -> Animation a -> Animation a
 delay amount (Animation { end, fn }) =
     Animation
@@ -133,6 +192,8 @@ delay amount (Animation { end, fn }) =
         }
 
 
+{-| Reverse the animation entirely
+-}
 reverse : Animation a -> Animation a
 reverse (Animation { end, fn }) =
     Animation
@@ -141,11 +202,18 @@ reverse (Animation { end, fn }) =
         }
 
 
+{-| Effectively sets the duration of the animation to be shorter.
+
+This might not behave how you expect it: animations can keep going past their end, you might want to use `freezeAfter` if you want the animation to actually stop.
+
+-}
 cutAt : Float -> Animation a -> Animation a
 cutAt newLength (Animation animData) =
     Animation { animData | end = newLength }
 
 
+{-| Stops the animation after the given time.
+-}
 freezeAfter : Float -> Animation a -> Animation a
 freezeAfter freezeTime (Animation animData) =
     Animation
@@ -154,6 +222,8 @@ freezeAfter freezeTime (Animation animData) =
         }
 
 
+{-| Speeds up the animation by a desired factor
+-}
 speedup : Float -> Animation a -> Animation a
 speedup factor (Animation { end, fn }) =
     Animation
@@ -162,35 +232,29 @@ speedup factor (Animation { end, fn }) =
         }
 
 
+{-| Sets an duration of `Infinity` and forever loops the animation
+-}
+loopForever : Animation a -> Animation a
+loopForever (Animation { end, fn }) =
+    Animation
+        { end = 1 / 0 -- infinity
+        , fn = \t -> t |> modByFloat end |> fn
+        }
+
+
+{-| Speeds up the animation to fit within the given time
+-}
 fitIn : Float -> Animation a -> Animation a
 fitIn newEnd anim =
     anim
         |> speedup (duration anim / newEnd)
 
 
-loopForever : Animation a -> Animation a
-loopForever (Animation { end, fn }) =
-    Animation
-        { end = 1 / 0 -- infinity
-        , fn = \t -> t |> modBy end |> fn
-        }
+{-| Most general combination of two `Animation`s.
 
+You probably want to narrow this down for your specific domain.
 
-setDuration : Float -> Animation a -> Animation a
-setDuration desiredLength anim =
-    let
-        curDuration =
-            duration anim
-
-        speedupFactor =
-            curDuration / desiredLength
-    in
-    anim
-        |> speedup speedupFactor
-        -- explicitly set the length
-        |> cutAt desiredLength
-
-
+-}
 alongWith : (Float -> a -> b -> c) -> Animation a -> Animation b -> Animation c
 alongWith combineFn (Animation first) (Animation second) =
     Animation
@@ -203,6 +267,14 @@ alongWith combineFn (Animation first) (Animation second) =
         }
 
 
+{-| Takes two animations and plays them one after the other.
+
+The order here is such that it's convenient when using a pipe:
+
+    beforAnimation
+        |> andAfter afterAnimation
+
+-}
 andAfter : Animation a -> Animation a -> Animation a
 andAfter afterAnim beforeAnim =
     let
@@ -223,6 +295,11 @@ andAfter afterAnim beforeAnim =
     alongWith combine beforeAnim delayedAnimation
 
 
+{-| Plays a list of `Animation`s together.
+
+Almost certainly more useful narrowed to a specific domain. Use `mapRes` to turn `List a` into something more helpful.
+
+-}
 together : List (Animation a) -> Animation (List a)
 together =
     List.foldl
@@ -230,6 +307,8 @@ together =
         (withNoBounds [])
 
 
+{-| With an initial value, plays a list of `Animation` in sequence.
+-}
 sequence : a -> List (Animation a) -> Animation a
 sequence init =
     List.foldl

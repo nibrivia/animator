@@ -18,6 +18,7 @@
       packages = with pkgs; [
         nodejs
 	nodePackages.pnpm
+        elmPackages.elm
         elmPackages.elm-format
         elmPackages.elm-language-server
       ];
