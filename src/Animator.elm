@@ -64,7 +64,7 @@ module Animator exposing
 
 -}
 
-import Math exposing (modByFloat)
+import Animator.Math exposing (modByFloat)
 
 
 {-| The core animation type

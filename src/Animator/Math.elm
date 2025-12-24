@@ -1,4 +1,4 @@
-module Math exposing (modByFloat, sign, interp)
+module Animator.Math exposing (modByFloat, sign, interp)
 
 {-|
 Small math helpers for making animations.
