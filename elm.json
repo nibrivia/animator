@@ -3,7 +3,7 @@
     "name": "nibrivia/animator",
     "summary": "Helpers for animation, or anything that varies with \"time\"",
     "license": "MIT",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "exposed-modules": ["Animator"],
     "source-directories": [
         "src"
