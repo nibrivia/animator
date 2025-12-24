@@ -1,5 +1,6 @@
 module Animator exposing
-    ( withNoBounds, withUnitBounds, withDuration
+    ( Animation
+    , withNoBounds, withUnitBounds, withDuration
     , render
     , duration, getEndState
     , startWith, endWith, oobValue, clampAnim
@@ -16,6 +17,7 @@ module Animator exposing
 
 ## Create an animation
 
+@docs Animation
 @docs withNoBounds, withUnitBounds, withDuration
 
 
